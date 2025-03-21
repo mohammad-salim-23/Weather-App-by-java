@@ -2,9 +2,11 @@ package com.example;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Image;
 import java.io.IOException;
+import java.net.URL;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -60,14 +62,26 @@ public class AIChatbot extends JFrame {
         chatArea.setContentType("text/html");
         JScrollPane scrollPane = new JScrollPane(chatArea);
 
-        // Input panel with icon
+        // Centered Image Panel (New)
+        JPanel imagePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        imagePanel.setBackground(new Color(30, 30, 30));
+        imagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        URL imageUrl = AIChatbot.class.getClassLoader().getResource("AIChatbot.jpg");
+        JLabel imageLabel;
+        if (imageUrl == null) {
+            System.out.println("Image not found!");
+            imageLabel = new JLabel();
+        } else {
+            ImageIcon originalIcon = new ImageIcon(imageUrl);
+            Image resizedImage = originalIcon.getImage().getScaledInstance(200, 200, Image.SCALE_SMOOTH);
+            ImageIcon resizedIcon = new ImageIcon(resizedImage);
+            imageLabel = new JLabel(resizedIcon);
+        }
+        imagePanel.add(imageLabel);
+
+        //Input Panel 
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.setBackground(new Color(30, 30, 30));
-
-        // Icon in the input field
-        JLabel inputIcon = new JLabel(new ImageIcon("https://i.pinimg.com/736x/4b/81/08/4b8108cbf99c531fdcc2d7c3e4edd31a.jpg")); 
-        inputIcon.setPreferredSize(new Dimension(30, 30));
-        inputPanel.add(inputIcon, BorderLayout.WEST);
 
         userInput = new JTextField("Ask anything...");
         userInput.setFont(new Font("Arial", Font.PLAIN, 16));
@@ -96,8 +110,10 @@ public class AIChatbot extends JFrame {
         inputPanel.add(userInput, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
 
+        // Adding components to JFrame
         add(headerPanel, BorderLayout.NORTH);
-        add(scrollPane, BorderLayout.CENTER);
+        add(imagePanel, BorderLayout.CENTER); //  Image is centered
+        add(scrollPane, BorderLayout.SOUTH);
         add(inputPanel, BorderLayout.SOUTH);
     }
 
