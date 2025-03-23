@@ -5,9 +5,11 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Image;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -19,19 +21,16 @@ import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
-import org.json.JSONObject;
-
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class AIChatbot extends JFrame {
     private JTextPane chatArea;
     private JTextField userInput;
     private JButton sendButton;
-    private static final String API_KEY = "YOUR_OPENAI_API_KEY";
+    private static final String API_KEY = "55a85549d9c94e2dcf4a9fe2be6d6610"; 
 
     public AIChatbot() {
         setTitle("Salim Chatbot 🤖");
@@ -62,14 +61,15 @@ public class AIChatbot extends JFrame {
         chatArea.setContentType("text/html");
         JScrollPane scrollPane = new JScrollPane(chatArea);
 
-        // Centered Image Panel (New)
+        // Image Panel
         JPanel imagePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         imagePanel.setBackground(new Color(30, 30, 30));
-        imagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        imagePanel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+
         URL imageUrl = AIChatbot.class.getClassLoader().getResource("AIChatbot.jpg");
         JLabel imageLabel;
         if (imageUrl == null) {
-            System.out.println("Image not found!");
+            System.out.println("⚠️ Image not found!");
             imageLabel = new JLabel();
         } else {
             ImageIcon originalIcon = new ImageIcon(imageUrl);
@@ -79,7 +79,7 @@ public class AIChatbot extends JFrame {
         }
         imagePanel.add(imageLabel);
 
-        //Input Panel 
+        // Input Panel
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.setBackground(new Color(30, 30, 30));
 
@@ -110,16 +110,21 @@ public class AIChatbot extends JFrame {
         inputPanel.add(userInput, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
 
+        // Fixing layout issue
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.add(imagePanel, BorderLayout.NORTH);
+        centerPanel.add(scrollPane, BorderLayout.CENTER);
+
         // Adding components to JFrame
         add(headerPanel, BorderLayout.NORTH);
-        add(imagePanel, BorderLayout.CENTER); //  Image is centered
-        add(scrollPane, BorderLayout.SOUTH);
+        add(centerPanel, BorderLayout.CENTER);
         add(inputPanel, BorderLayout.SOUTH);
     }
 
     private void sendUserMessage() {
         String userText = userInput.getText().trim();
         if (!userText.isEmpty() && !userText.equals("Ask anything...")) {
+            System.out.println("📝 User message: " + userText);
             appendMessage("You", userText, new Color(52, 152, 219));
             userInput.setText("");
             sendMessageToAI(userText);
@@ -129,29 +134,43 @@ public class AIChatbot extends JFrame {
     private void sendMessageToAI(String userMessage) {
         new Thread(() -> {
             try {
-                OkHttpClient client = new OkHttpClient();
-                JSONObject json = new JSONObject();
-                json.put("model", "gpt-3.5-turbo");
-                json.put("messages", new JSONObject[]{new JSONObject().put("role", "user").put("content", userMessage)});
+                // Example: Download a dataset using Kaggle API
+                downloadDataset();
 
-                RequestBody body = RequestBody.create(json.toString(), MediaType.get("application/json; charset=utf-8"));
+                // For now, just display a placeholder response
+                String aiResponse = "This is a placeholder response from Kaggle API.";
+                SwingUtilities.invokeLater(() -> appendMessage("AI", aiResponse, new Color(46, 204, 113)));
+            } catch (Exception e) {
+                System.out.println("❌ Error fetching response: " + e.getMessage());
+                SwingUtilities.invokeLater(() -> appendMessage("AI", "Error fetching response.", Color.RED));
+            }
+        }).start();
+    }
+
+    private void downloadDataset() {
+        new Thread(() -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
 
                 Request request = new Request.Builder()
-                        .url("https://api.openai.com/v1/chat/completions")
+                        .url("https://www.kaggle.com/api/v1/datasets/download/<owner>/<dataset-name>")
                         .addHeader("Authorization", "Bearer " + API_KEY)
-                        .post(body)
                         .build();
 
                 Response response = client.newCall(request).execute();
                 if (response.isSuccessful() && response.body() != null) {
-                    String responseText = response.body().string();
-                    JSONObject jsonResponse = new JSONObject(responseText);
-                    String aiResponse = jsonResponse.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
-
-                    SwingUtilities.invokeLater(() -> appendMessage("AI", aiResponse, new Color(46, 204, 113)));
+                    try (ResponseBody responseBody = response.body()) {
+                        // Save the dataset to a file
+                        FileOutputStream fos = new FileOutputStream("dataset.zip");
+                        fos.write(responseBody.bytes());
+                        fos.close();
+                        System.out.println("✅ Dataset downloaded successfully.");
+                    }
+                } else {
+                    System.out.println("❌ API request failed with code: " + response.code());
                 }
             } catch (IOException e) {
-                SwingUtilities.invokeLater(() -> appendMessage("AI", "Error fetching response.", Color.RED));
+                System.out.println("❌ Error downloading dataset: " + e.getMessage());
             }
         }).start();
     }
