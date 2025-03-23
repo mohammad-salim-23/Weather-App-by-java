@@ -25,9 +25,21 @@
             <version>4.9.3</version>
         </dependency>
         <dependency>
+        <dependency>
+    <groupId>com.assemblyai</groupId>
+    <artifactId>assemblyai-java</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
     <groupId>org.tensorflow</groupId>
     <artifactId>tensorflow</artifactId>
     <version>1.15.0</version> <!-- Use the latest version -->
 </dependency>
+ <dependency>
+        <groupId>io.github.cdimascio</groupId>
+        <artifactId>java-dotenv</artifactId>
+        <version>5.2.2</version>
+    </dependency>
     </dependencies>
 </project>
+<!-- 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 -->

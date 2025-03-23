@@ -5,11 +5,11 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Image;
-import java.io.FileOutputStream;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.io.IOException;
 import java.net.URL;
 
-import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -20,167 +20,158 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
-import okhttp3.ResponseBody;
-
+import io.github.cdimascio.dotenv.Dotenv;
 public class AIChatbot extends JFrame {
     private JTextPane chatArea;
     private JTextField userInput;
     private JButton sendButton;
-    private static final String API_KEY = "55a85549d9c94e2dcf4a9fe2be6d6610"; 
+    private static final Dotenv dotenv = Dotenv.load();
+    private static final String API_KEY = dotenv.get("Chatbot_Key");
+    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String DEFAULT_TEXT = "Ask anything...";
 
     public AIChatbot() {
         setTitle("Salim Chatbot 🤖");
-        setSize(400, 500);
+        setSize(400, 550);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
-        getContentPane().setBackground(new Color(30, 30, 30));
 
         // Header panel
-        JPanel headerPanel = new JPanel();
+        JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(44, 62, 80));
-        headerPanel.setLayout(new BorderLayout());
 
         JLabel headerLabel = new JLabel("Salim Chatbot 🤖", SwingConstants.CENTER);
         headerLabel.setFont(new Font("Arial", Font.BOLD, 20));
         headerLabel.setForeground(Color.WHITE);
-
-        JLabel helpText = new JLabel("What can I help with?", SwingConstants.CENTER);
-        helpText.setFont(new Font("Arial", Font.PLAIN, 14));
-        helpText.setForeground(Color.LIGHT_GRAY);
-
         headerPanel.add(headerLabel, BorderLayout.NORTH);
-        headerPanel.add(helpText, BorderLayout.SOUTH);
 
-        // Chat display area
-        chatArea = new JTextPane();
-        chatArea.setEditable(false);
-        chatArea.setContentType("text/html");
-        JScrollPane scrollPane = new JScrollPane(chatArea);
-
-        // Image Panel
+        // Image panel (NEW)
         JPanel imagePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         imagePanel.setBackground(new Color(30, 30, 30));
-        imagePanel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
 
         URL imageUrl = AIChatbot.class.getClassLoader().getResource("AIChatbot.jpg");
-        JLabel imageLabel;
-        if (imageUrl == null) {
-            System.out.println("⚠️ Image not found!");
-            imageLabel = new JLabel();
-        } else {
+        if (imageUrl != null) {
             ImageIcon originalIcon = new ImageIcon(imageUrl);
-            Image resizedImage = originalIcon.getImage().getScaledInstance(200, 200, Image.SCALE_SMOOTH);
-            ImageIcon resizedIcon = new ImageIcon(resizedImage);
-            imageLabel = new JLabel(resizedIcon);
+            Image scaledImage = originalIcon.getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
+            JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+            imagePanel.add(imageLabel);
         }
-        imagePanel.add(imageLabel);
 
-        // Input Panel
+        headerPanel.add(imagePanel, BorderLayout.CENTER);
+
+        // Chat area
+        chatArea = new JTextPane();
+        chatArea.setEditable(false);
+        chatArea.setBackground(Color.WHITE);
+        chatArea.setForeground(Color.BLACK);
+        JScrollPane scrollPane = new JScrollPane(chatArea);
+
+        // Input panel
         JPanel inputPanel = new JPanel(new BorderLayout());
-        inputPanel.setBackground(new Color(30, 30, 30));
-
-        userInput = new JTextField("Ask anything...");
-        userInput.setFont(new Font("Arial", Font.PLAIN, 16));
+        userInput = new JTextField(DEFAULT_TEXT);
         userInput.setForeground(Color.GRAY);
+        userInput.setBackground(Color.WHITE);
 
-        // Placeholder behavior
-        userInput.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent evt) {
-                if (userInput.getText().equals("Ask anything...")) {
+        userInput.addFocusListener(new FocusListener() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (userInput.getText().equals(DEFAULT_TEXT)) {
                     userInput.setText("");
                     userInput.setForeground(Color.BLACK);
                 }
             }
-            public void focusLost(java.awt.event.FocusEvent evt) {
+
+            @Override
+            public void focusLost(FocusEvent e) {
                 if (userInput.getText().isEmpty()) {
-                    userInput.setText("Ask anything...");
+                    userInput.setText(DEFAULT_TEXT);
                     userInput.setForeground(Color.GRAY);
                 }
             }
         });
 
         sendButton = new JButton("Send ➤");
-        sendButton.setFont(new Font("Arial", Font.BOLD, 14));
         sendButton.addActionListener(e -> sendUserMessage());
 
         inputPanel.add(userInput, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
 
-        // Fixing layout issue
-        JPanel centerPanel = new JPanel(new BorderLayout());
-        centerPanel.add(imagePanel, BorderLayout.NORTH);
-        centerPanel.add(scrollPane, BorderLayout.CENTER);
-
-        // Adding components to JFrame
         add(headerPanel, BorderLayout.NORTH);
-        add(centerPanel, BorderLayout.CENTER);
+        add(scrollPane, BorderLayout.CENTER);
         add(inputPanel, BorderLayout.SOUTH);
     }
 
     private void sendUserMessage() {
         String userText = userInput.getText().trim();
-        if (!userText.isEmpty() && !userText.equals("Ask anything...")) {
-            System.out.println("📝 User message: " + userText);
-            appendMessage("You", userText, new Color(52, 152, 219));
+        if (!userText.isEmpty() && !userText.equals(DEFAULT_TEXT)) {
+            appendMessage("You", userText, Color.BLUE);
             userInput.setText("");
-            sendMessageToAI(userText);
+            sendMessageToGPT(userText);
         }
     }
 
-    private void sendMessageToAI(String userMessage) {
-        new Thread(() -> {
-            try {
-                // Example: Download a dataset using Kaggle API
-                downloadDataset();
-
-                // For now, just display a placeholder response
-                String aiResponse = "This is a placeholder response from Kaggle API.";
-                SwingUtilities.invokeLater(() -> appendMessage("AI", aiResponse, new Color(46, 204, 113)));
-            } catch (Exception e) {
-                System.out.println("❌ Error fetching response: " + e.getMessage());
-                SwingUtilities.invokeLater(() -> appendMessage("AI", "Error fetching response.", Color.RED));
-            }
-        }).start();
-    }
-
-    private void downloadDataset() {
+    private void sendMessageToGPT(String userMessage) {
         new Thread(() -> {
             try {
                 OkHttpClient client = new OkHttpClient();
+                JSONObject json = new JSONObject();
+                json.put("model", "gpt-3.5-turbo");
+                json.put("messages", new JSONArray().put(new JSONObject().put("role", "user").put("content", userMessage)));
 
+                RequestBody body = RequestBody.create(json.toString(), MediaType.get("application/json; charset=utf-8"));
                 Request request = new Request.Builder()
-                        .url("https://www.kaggle.com/api/v1/datasets/download/<owner>/<dataset-name>")
+                        .url(API_URL)
                         .addHeader("Authorization", "Bearer " + API_KEY)
+                        .post(body)
                         .build();
 
                 Response response = client.newCall(request).execute();
                 if (response.isSuccessful() && response.body() != null) {
-                    try (ResponseBody responseBody = response.body()) {
-                        // Save the dataset to a file
-                        FileOutputStream fos = new FileOutputStream("dataset.zip");
-                        fos.write(responseBody.bytes());
-                        fos.close();
-                        System.out.println("✅ Dataset downloaded successfully.");
-                    }
+                    String responseBody = response.body().string();
+                    String aiResponse = new JSONObject(responseBody)
+                            .getJSONArray("choices")
+                            .getJSONObject(0)
+                            .getJSONObject("message")
+                            .getString("content");
+                    SwingUtilities.invokeLater(() -> appendMessage("AI", aiResponse, Color.BLACK));
                 } else {
-                    System.out.println("❌ API request failed with code: " + response.code());
+                    SwingUtilities.invokeLater(() -> appendMessage("AI", "⚠️ API Error!", Color.RED));
                 }
             } catch (IOException e) {
-                System.out.println("❌ Error downloading dataset: " + e.getMessage());
+                SwingUtilities.invokeLater(() -> appendMessage("AI", "⚠️ Connection error!", Color.RED));
             }
         }).start();
     }
 
     private void appendMessage(String sender, String message, Color color) {
-        chatArea.setText(chatArea.getText() + "<p style='color:" + toHex(color) + ";'><b>" + sender + ":</b> " + message + "</p>");
-    }
-
-    private String toHex(Color color) {
-        return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
+        SwingUtilities.invokeLater(() -> {
+            StyledDocument doc = chatArea.getStyledDocument();
+            SimpleAttributeSet style = new SimpleAttributeSet();
+            StyleConstants.setForeground(style, color);
+            StyleConstants.setBold(style, true);
+            StyleConstants.setFontSize(style, 16);  
+    
+            try {
+                doc.insertString(doc.getLength(), sender + ": ", style);
+                StyleConstants.setBold(style, false);
+                doc.insertString(doc.getLength(), message + "\n\n", style);  // gap
+            } catch (BadLocationException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public static void main(String[] args) {
