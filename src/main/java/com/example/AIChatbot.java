@@ -9,13 +9,16 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
@@ -28,16 +31,22 @@ import javax.swing.text.StyledDocument;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import io.github.cdimascio.dotenv.Dotenv;
+
 public class AIChatbot extends JFrame {
     private JTextPane chatArea;
     private JTextField userInput;
     private JButton sendButton;
+    private JButton toggleModeButton;
+    private JButton clearChatButton;
+    private JButton viewHistoryButton;
+    private boolean darkMode = true;
+    private ArrayList<String> chatHistory = new ArrayList<>();
     private static final Dotenv dotenv = Dotenv.load();
     private static final String API_KEY = dotenv.get("Chatbot_Key");
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
@@ -45,7 +54,7 @@ public class AIChatbot extends JFrame {
 
     public AIChatbot() {
         setTitle("Salim Chatbot 🤖");
-        setSize(400, 550);
+        setSize(400, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -58,7 +67,7 @@ public class AIChatbot extends JFrame {
         headerLabel.setForeground(Color.WHITE);
         headerPanel.add(headerLabel, BorderLayout.NORTH);
 
-        // Image panel (NEW)
+        // Image panel
         JPanel imagePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         imagePanel.setBackground(new Color(30, 30, 30));
 
@@ -106,12 +115,26 @@ public class AIChatbot extends JFrame {
         sendButton = new JButton("Send ➤");
         sendButton.addActionListener(e -> sendUserMessage());
 
+        toggleModeButton = new JButton("Toggle Mode");
+        toggleModeButton.addActionListener(e -> toggleDarkMode());
+
+        clearChatButton = new JButton("Clear Chat");
+        clearChatButton.addActionListener(e -> clearChat());
+
+        viewHistoryButton = new JButton("View History");
+        viewHistoryButton.addActionListener(e -> viewChatHistory());
+
         inputPanel.add(userInput, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
+        inputPanel.add(toggleModeButton, BorderLayout.NORTH);
+        inputPanel.add(clearChatButton, BorderLayout.WEST);
+        inputPanel.add(viewHistoryButton, BorderLayout.SOUTH);
 
         add(headerPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
         add(inputPanel, BorderLayout.SOUTH);
+
+        loadChatHistory(); // Load chat history on startup
     }
 
     private void sendUserMessage() {
@@ -120,6 +143,7 @@ public class AIChatbot extends JFrame {
             appendMessage("You", userText, Color.BLUE);
             userInput.setText("");
             sendMessageToGPT(userText);
+            chatHistory.add("You: " + userText);
         }
     }
 
@@ -147,6 +171,7 @@ public class AIChatbot extends JFrame {
                             .getJSONObject("message")
                             .getString("content");
                     SwingUtilities.invokeLater(() -> appendMessage("AI", aiResponse, Color.BLACK));
+                    chatHistory.add("AI: " + aiResponse);
                 } else {
                     SwingUtilities.invokeLater(() -> appendMessage("AI", "⚠️ API Error!", Color.RED));
                 }
@@ -162,8 +187,8 @@ public class AIChatbot extends JFrame {
             SimpleAttributeSet style = new SimpleAttributeSet();
             StyleConstants.setForeground(style, color);
             StyleConstants.setBold(style, true);
-            StyleConstants.setFontSize(style, 16);  
-    
+            StyleConstants.setFontSize(style, 16);
+
             try {
                 doc.insertString(doc.getLength(), sender + ": ", style);
                 StyleConstants.setBold(style, false);
@@ -172,6 +197,57 @@ public class AIChatbot extends JFrame {
                 e.printStackTrace();
             }
         });
+    }
+
+    private void toggleDarkMode() {
+        darkMode = !darkMode;
+        if (darkMode) {
+            setBackground(Color.BLACK);
+            chatArea.setBackground(Color.BLACK);
+            chatArea.setForeground(Color.WHITE);
+            userInput.setBackground(Color.BLACK);
+            userInput.setForeground(Color.WHITE);
+            toggleModeButton.setText("Light Mode");
+        } else {
+            setBackground(Color.WHITE);
+            chatArea.setBackground(Color.WHITE);
+            chatArea.setForeground(Color.BLACK);
+            userInput.setBackground(Color.WHITE);
+            userInput.setForeground(Color.BLACK);
+            toggleModeButton.setText("Dark Mode");
+        }
+    }
+
+    private void clearChat() {
+        chatArea.setText("");
+        // chatHistory.clear();
+    }
+
+   private void viewChatHistory() {
+    StringBuilder history = new StringBuilder();
+    for (String message : chatHistory) {
+        history.append(message).append("\n");
+    }
+
+    JTextArea textArea = new JTextArea(history.toString());
+    textArea.setEditable(false);
+    textArea.setLineWrap(true);
+    textArea.setWrapStyleWord(true);
+    textArea.setFont(new Font("Arial", Font.PLAIN, 14));
+
+    JScrollPane scrollPane = new JScrollPane(textArea);
+    scrollPane.setPreferredSize(new java.awt.Dimension(350, 300)); // fixed size
+
+    JOptionPane.showMessageDialog(this, scrollPane, "Chat History", JOptionPane.INFORMATION_MESSAGE);
+}
+
+    private void loadChatHistory() {
+        for (String message : chatHistory) {
+            String[] parts = message.split(": ", 2);
+            if (parts.length == 2) {
+                appendMessage(parts[0], parts[1], parts[0].equals("You") ? Color.BLUE : Color.BLACK);
+            }
+        }
     }
 
     public static void main(String[] args) {
